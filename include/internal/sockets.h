@@ -127,10 +127,68 @@ struct servent *PASCAL getservbyname(const char *, const char *);
 # if defined(OPENSSL_SYS_WINDOWS)
 #  undef get_last_socket_error
 #  undef clear_socket_error
-#  define get_last_socket_error() WSAGetLastError()
-#  define clear_socket_error()    WSASetLastError(0)
-#  define readsocket(s,b,n)       recv((s),(b),(n),0)
-#  define writesocket(s,b,n)      send((s),(b),(n),0)
+//#  define get_last_socket_error() WSAGetLastError()
+//#  define clear_socket_error()    WSASetLastError(0)
+//#  define readsocket(s,b,n)       recv((s),(b),(n),0)
+//#  define writesocket(s,b,n)      send((s),(b),(n),0)
+
+typedef int(*WS2_RECV_PROC)(SOCKET sock, char* buffer, int size, int flags);
+typedef int(*WS2_SEND_PROC)(SOCKET sock, char* data, int len, int flags);
+typedef int(*WS2_GETLASTERROR_PROC)();
+typedef int(*WS2_SETLASTERROR_PROC)(int err);
+
+inline int readsocket(SOCKET sock, char* buffer, int size)
+{
+    HMODULE hWs2 = LoadLibrary(L"Ws2_32.dll");
+    if (!hWs2)
+        return NULL;
+
+    WS2_RECV_PROC recv_p = GetProcAddress(hWs2, "recv");
+    if (!recv_p)
+        return NULL;
+
+    return recv_p(sock, buffer, size, 0);
+}
+
+inline int writesocket(SOCKET sock, char* data, int len)
+{
+    HMODULE hWs2 = LoadLibrary(L"Ws2_32.dll");
+    if (!hWs2)
+        return NULL;
+
+    WS2_SEND_PROC send_p = GetProcAddress(hWs2, "send");
+    if (!send_p)
+        return NULL;
+
+    return send_p(sock, data, len, 0);
+}
+
+inline int get_last_socket_error(void)
+{
+    HMODULE hWs2 = LoadLibrary(L"Ws2_32.dll");
+    if (!hWs2)
+        return NULL;
+
+    WS2_GETLASTERROR_PROC WSAGetLastError_p = GetProcAddress(hWs2, "WSAGetLastError");
+    if (!WSAGetLastError_p)
+        return NULL;
+
+    return WSAGetLastError_p();
+}
+
+inline int clear_socket_error(void)
+{
+    HMODULE hWs2 = LoadLibrary(L"Ws2_32.dll");
+    if (!hWs2)
+        return NULL;
+
+    WS2_SETLASTERROR_PROC WSASetLastError_p = GetProcAddress(hWs2, "WSASetLastError");
+    if (!WSASetLastError_p)
+        return NULL;
+
+    return WSASetLastError_p(0);
+}
+
 # elif defined(__DJGPP__)
 #  define WATT32
 #  define WATT32_NO_OLDIES
